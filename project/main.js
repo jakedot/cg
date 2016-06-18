@@ -87,43 +87,6 @@ const trophyTexCoords = new Float32Array([
   0,0, 0,1, 1,1, 1,0,
   0,0, 0,1, 1,1, 1,0,
   0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
-  0,0, 0,1, 1,1, 1,0,
 ]);
 
 //load the shader resources using a utility function
@@ -138,6 +101,7 @@ loadResources({
   armtexture: 'textures/arm_full.png',
   bodytexture: 'textures/body.png',
   headtexture: 'textures/head_full.png',
+  //track
   tracktexture: 'textures/track.jpg',
   glasstexture: 'textures/glass.png',
 
@@ -221,16 +185,15 @@ function createSceneGraph(gl, resources) {
   createRunner();
   runnerNodes.forEach(r=>transRunner.push(new TransformationSGNode(glm.transform({ translate: [0,0.8, 0], rotateX : 270, scale: 1 }),[r])));
   transRunner.forEach(t=>root.append(t));
-
   {
     let trophy = new TrophyNode(glm.transform({
-      translate: [2,0,0],
+      translate: [0,1,0],
       rotateX: 0,
-      scale: 0.5,
+      scale: 1,
       scaleY: 1
     }), glassTexture);
 
-    root.append(trophy);
+    runnerNodes.forEach(r=>r.append(trophy));
   }
 
   {
@@ -269,7 +232,7 @@ function createSceneGraph(gl, resources) {
       [[-0.5,0.6,-26.5], [9,0.1,0.5]],
     ];
 
-    positions.forEach(r=>{
+    positions.forEach(([t,s])=>{
       var mat = new MaterialSGNode();
 
       mat.ambient = [1, 0.75, 0.33, 0.15];
@@ -277,7 +240,7 @@ function createSceneGraph(gl, resources) {
       mat.specular = [1, 0.75, 0.33, 1];
       mat.shininess = 1;
 
-      root.append(mat.append(new TransformationSGNode(glm.transform({translate:r[0], scale: r[1]}),
+      root.append(mat.append(new TransformationSGNode(glm.transform({translate:t, scale: s}),
         [new CubeRenderNode()]
       )));
     })
@@ -443,6 +406,8 @@ function render(timeInMilliseconds) {
 
   context.viewMatrix = mat4.lookAt(mat4.create(), eye, center, [0,1,0]);
 
+  gl.uniform1f(gl.getUniformLocation(context.shader, 'u_alpha'), 1.0);
+
   root.render(context);
 
   //animate based on elapsed time
@@ -517,6 +482,8 @@ class TrophyNode extends TransformationSGNode {
   }
 
   render(context) {
+    gl.uniform1f(gl.getUniformLocation(context.shader, 'u_alpha'), 0.3);
+    // enable transparency
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
 
@@ -524,6 +491,8 @@ class TrophyNode extends TransformationSGNode {
 
     gl.blendFunc(gl.ONE, gl.ZERO);
     gl.disable(gl.BLEND);
+
+      gl.uniform1f(gl.getUniformLocation(context.shader, 'u_alpha'), 1);
   }
 }
 
@@ -770,6 +739,11 @@ RunnerNode = function() {
         }
         break;
       case RunnerState.depressed:
+        if (flight.activated || this.near) {
+          this.rotation = limbRotation();
+          this.head.matrix = mat4.multiply(mat4.create(), headTransformationMatrix, glm.rotateY(this.rotation));
+        }
+
         break;
       case RunnerState.starting:
         if (flight.activated) { //standup during start
@@ -793,14 +767,10 @@ RunnerNode = function() {
 return RunnerNode;
 }();
 
-function makeRectText(width, height, textures) {
+function makeRectText(width, height, texture) {
   var r = makeRect(width, height);
-  return {
-    position: r.position,
-    normal: r.normal,
-    texture: textures,
-    index: r.index
-  };
+  r.texture = texture;
+  return r;
 }
 
 function convertDegreeToRadians(degree) {

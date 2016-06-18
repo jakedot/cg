@@ -39,6 +39,8 @@ uniform vec3 l2dir;
 
 uniform sampler2D u_tex;
 
+uniform float u_alpha;
+
 //varying vectors for light computation
 varying vec3 v_normalVec;
 varying vec3 v_eyeVec;
