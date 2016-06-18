@@ -40,6 +40,15 @@ var cubeVertices = new Float32Array([
    -s, s,-s, -s, s, s, s, s, s, s, s,-s,
 ]);
 
+var cubeNormals = new Float32Array([
+   0,-1,1,  0,-1,1,   0,-1,1,   0,-1,1,
+   0,1,1,   0,1,1,    0,1,1,    0,1,1,
+   1,0,-1,  1,0,-1,   1,0,-1,   1,0,-1,
+   1,0,1,   1,0,1,    1,0,1,    1,0,1,
+   -1,1,0,  -1,1,0,   -1,1,0,   -1,1,0,
+   0,1,-1,  0,1,-1,   0,1,-1,   0,1,-1,
+]);
+
 var cubeIndices =  new Float32Array([
    0,1,2, 0,2,3,
    4,5,6, 4,6,7,
@@ -138,80 +147,96 @@ function createSceneGraph(gl, resources) {
 
   {
     //TASK 3-6 create white light node at [0, -2, 2]
-    let light = new LightNode();
+    let light = new LightSGNode();
     light.ambient = [0, 0, 0, 1];
     light.diffuse = [1, 1, 1, 1];
     light.specular = [1, 1, 1, 1];
     light.position = [0, -2, 2];
     light.append(createLightSphere());
     //TASK 4-1 animated light using rotateLight transformation node
-    rotateLight = new TransformationSGNode(mat4.create(), [
+    rotateLight = new TransformationSGNode(glm.translate(2, -3, 2), [
         light
     ]);
-    root.append(rotateLight);
   }
 
 
   {
     //TASK 5-1 create red light node at [2, 0.2, 0]
-    let light2 = new LightNode();
+    let light2 = new LightSGNode();
     light2.uniform = 'u_light2';
     light2.diffuse = [1, 0, 0, 1];
     light2.specular = [1, 0, 0, 1];
     light2.position = [2, 0.2, 0];
     light2.append(createLightSphere());
-    rotateLight2 = new TransformationSGNode(mat4.create(), [
+    rotateLight2 = new TransformationSGNode(glm.translate(0, -2, 2), [
         light2
     ]);
-    root.append(rotateLight2);
+    rotateLight = new TransformationSGNode(mat4.create(), [rotateLight, rotateLight2]);
+    root.append(rotateLight);
   }
 
   createRunner();
-
-  for (var runner of runnerNodes) {
-    //TASK 2-4 wrap with material node
-    let matRun = new MaterialSGNode([
-      runner
-    ]);
-    //gold
-    matRun.ambient = [0.24725, 0.1995, 0.0745, 1];
-    matRun.diffuse = [0.75164, 0.60648, 0.22648, 1];
-    matRun.specular = [0.628281, 0.555802, 0.366065, 1];
-    matRun.shininess = 0.4;
-
-    transRunner.push(//new TransformationSGNode(mat4.create(), [
-      new TransformationSGNode(glm.transform({ translate: [0,0.7, 0], rotateX : 270, scale: 1 }),  [
-        matRun
-      //])
-    ]));
-  }
+  runnerNodes.forEach(r=>transRunner.push(new TransformationSGNode(glm.transform({ translate: [0,0.8, 0], rotateX : 270, scale: 1 }),[r])));
   transRunner.forEach(t=>root.append(t));
 
   {
+    let floor = new AdvancedTextureSGNode(
+      resources.tracktexture,
+      new RenderSGNode(makeRectText(3,16,[0, 0 /**/, 20, 0 /**/, 20, 20 /**/, 0, 20]))
+    );
+    floor.wrapS = gl.REPEAT;
+    floor.wrapT = gl.REPEAT;
     //TASK 2-5 wrap with material node
-    let floor = new MaterialSGNode([
-      new RenderSGNode(makeRect())
+    floor = new MaterialSGNode([
+      floor
     ]);
-    floor.emission = [0,0,0,0];
 
     //dark
     floor.ambient = [0, 0, 0, 1];
-    floor.diffuse = [0.1, 0.1, 0.1, 1];
-    floor.specular = [0.5, 0.5, 0.5, 1];
+    floor.diffuse = [0.5, 0.5, 0.5, 1];
+    floor.specular = [1, 1, 1, 1];
 
-    root.append(new TransformationSGNode(glm.transform({ translate: [0,1,0], rotateX: 90, scale: 2}), [
+    root.append(new TransformationSGNode(glm.transform({ translate: [0,0.6,-13], rotateX: 90}), [
       floor
     ]));
+  }
+
+  {
+    //start
+    var positions = [
+      [[-3.1,0,-1], [1,2,1]],
+      [[2.5,0,-1], [1,2,1]],
+      [[-0.5,0.6,-1], [9,0.1,0.5]],
+      [[-3.1,0,-13], [1,2,1]],
+      [[2.5,0,-13], [1,2,1]],
+      [[-0.5,0.6,-13], [9,0.1,0.5]],
+      [[-3.1,0,-26.5], [1,2,1]],
+      [[2.5,0,-26.5], [1,2,1]],
+      [[-0.5,0.6,-26.5], [9,0.1,0.5]],
+    ];
+
+    positions.forEach(r=>{
+      var mat = new MaterialSGNode();
+
+      mat.ambient = [1, 0.75, 0.33, 0.15];
+      mat.diffuse = [1, 0.75, 0.33, 1];
+      mat.specular = [1, 0.75, 0.33, 1];
+      mat.shininess = 1;
+
+      root.append(mat.append(new TransformationSGNode(glm.transform({translate:r[0], scale: r[1]}),
+        [new CubeRenderNode()]
+      )));
+    })
   }
 
   return root;
 }
 
 function createRunner() {
-  runnerNodes.push(new RunnerNode([-2,1,0],.022,[0,0,1]));
-  runnerNodes.push(new RunnerNode([-1,1,0],.02,[0,0,1]));
-  runnerNodes.push(new RunnerNode([0,1,0],.021,[0,0,1]));
-  runnerNodes.push(new RunnerNode([1,1,0],.023,[0,0,1]));
+  runnerNodes.push(new RunnerNode([-2,1.4,0],.022,[0,0,1]));
+  runnerNodes.push(new RunnerNode([-1,1.4,0],.02,[0,0,1]));
+  runnerNodes.push(new RunnerNode([0,1.4,0],.021,[0,0,1]));
+  runnerNodes.push(new RunnerNode([1,1.4,0],.023,[0,0,1]));
 }
 
 function initRunners() {
@@ -363,11 +388,6 @@ function render(timeInMilliseconds) {
 
   context.viewMatrix = mat4.lookAt(mat4.create(), eye, center, [0,1,0]);
 
-  //TASK 4-2 enable light rotation
-  rotateLight.matrix = glm.rotateY(timeInMilliseconds*0.05);
-  //TASK 5-2 enable light rotation
-  rotateLight2.matrix = glm.rotateY(-timeInMilliseconds*0.1);
-
   root.render(context);
 
   //animate based on elapsed time
@@ -390,69 +410,25 @@ class CameraFlight {
   		if (time == 0) {  //turning behind runners
   			this.lastSceneMatrix = mat4.multiply(mat4.create(), this.lastSceneMatrix, glm.rotateY(0));
   		} else if (time < 5000) { //standing up, turning to side
-        this.lastSceneMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.rotateY((time / 5000) * 90));
-      } else if (time < 15000) {  //flying with runners
+        this.lastSceneMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.rotateY((time / 5000) * 130));
+        rotateLight.matrix = glm.rotateY((time / 5000) * 360);
+      } else if (time < 25000) {  //flying with runners
         if (!this.running) {
           this.running = true;
           runnerNodes.forEach(r=>r.state=RunnerState.running);
         }
-        this.lastSceneMatrix = mat4.multiply(mat4.create(), glm.rotateY(90), glm.translate(0,0,((time - 5000) / 1000)));
-      } else if (this.running && time > 15000) {  //jubilating
-        this.running = false;
-        runnerNodes.forEach((r,i)=>r.state=i===3?RunnerState.jubilating:RunnerState.depressed);
+        this.lastSceneMatrix = mat4.multiply(mat4.create(), glm.rotateY(130), glm.translate(0,0,((time - 5000) / 800)));
+        rotateLight.matrix = glm.translate(0,0,-((time - 5000) / 800));
+      } else if (time < 30000) {  //jubilating
+        if (this.running) {
+          this.running = false;
+          runnerNodes.forEach((r,i)=>r.state=i===3?RunnerState.jubilating:RunnerState.depressed);
+        }
+        this.lastSceneMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.rotateY(130+(time-25000)/5000*410));
+        this.lastSceneMatrix = mat4.multiply(mat4.create(), this.lastSceneMatrix, glm.translate(0,0,25));
       }
     }
 	  return this.lastSceneMatrix;
-  }
-}
-
-/**
- * a light node represents a light including light position and light properties (ambient, diffuse, specular)
- * the light position will be transformed according to the current model view matrix
- */
-class LightNode extends TransformationSGNode {
-
-  constructor(position, children) {
-    super(children);
-    this.position = position || [0, 0, 0];
-    this.ambient = [0, 0, 0, 1];
-    this.diffuse = [1, 1, 1, 1];
-    this.specular = [1, 1, 1, 1];
-    //uniform name
-    this.uniform = 'u_light';
-  }
-
-  /**
-   * computes the absolute light position in world coordinates
-   */
-  computeLightPosition(context) {
-    //transform with the current model view matrix
-    const modelViewMatrix = mat4.multiply(mat4.create(), context.viewMatrix, context.sceneMatrix);
-    const pos = [...this.position, 1];
-    return vec4.transformMat4(vec4.create(), pos, modelViewMatrix);
-  }
-
-  setLightUniforms(context) {
-    const gl = context.gl,
-      shader = context.shader,
-      position = this.computeLightPosition(context, this.position);
-
-    //TASK 3-5 set uniforms
-    gl.uniform4fv(gl.getUniformLocation(shader, this.uniform+'.ambient'), this.ambient);
-    gl.uniform4fv(gl.getUniformLocation(shader, this.uniform+'.diffuse'), this.diffuse);
-    gl.uniform4fv(gl.getUniformLocation(shader, this.uniform+'.specular'), this.specular);
-
-    gl.uniform3f(gl.getUniformLocation(shader, this.uniform+'Pos'), position[0], position[1], position[2]);
-  }
-
-  render(context) {
-    this.setLightUniforms(context);
-
-    //since this a transformation node update the matrix according to my position
-    this.matrix = glm.translate(this.position[0], this.position[1], this.position[2]);
-
-    //render children
-    super.render(context);
   }
 }
 
@@ -461,7 +437,8 @@ class CubeRenderNode extends RenderSGNode {
     super({
       index: cubeIndices,
       position: cubeVertices,
-      texture: cubeTexCoords
+      texture: cubeTexCoords,
+      normal: cubeNormals
     })
   }
 }
@@ -528,8 +505,12 @@ RunnerNode = function() {
 
   class LimbNode extends TransformationSGNode {
     constructor(matrix, texture) {
-        super(matrix, [new AdvancedTextureSGNode(texture, [new CubeRenderNode()])]);
-        this[initMatrix] = matrix;
+      var mat = new MaterialSGNode(new AdvancedTextureSGNode(texture, [new CubeRenderNode()]));
+      mat.ambient = [0, 0, 0, 1];
+      mat.diffuse = [0.5, 0.5, 0.5, 1];
+      mat.specular = [1, 1, 1, 1];
+      super(matrix, [mat]);
+      this[initMatrix] = matrix;
     }
 
     reset() {
@@ -720,6 +701,16 @@ RunnerNode = function() {
 
 return RunnerNode;
 }();
+
+function makeRectText(width, height, textures) {
+  var r = makeRect(width, height);
+  return {
+    position: r.position,
+    normal: r.normal,
+    texture: textures,
+    index: r.index
+  };
+}
 
 function convertDegreeToRadians(degree) {
   return degree * Math.PI / 180;
