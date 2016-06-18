@@ -84,7 +84,14 @@ loadResources({
   bodytexture: 'textures/body.png',
   headtexture: 'textures/head_full.png',
   //track
-  tracktexture: 'textures/track.jpg'
+  tracktexture: 'textures/track.jpg',
+  // cubemap
+  positivex: 'textures/pos-x.png',
+  negativex: 'textures/neg-x.png',
+  positivey: 'textures/pos-y.png',
+  negativey: 'textures/neg-y.png',
+  positivez: 'textures/pos-z.png',
+  negativez: 'textures/neg-z.png'
 }).then(function (resources /*an object containing our keys with the loaded resources*/) {
   init(resources);
 
@@ -104,6 +111,7 @@ function init(resources) {
   initRunners();
   // initCubeBuffer(gl);
   root = createSceneGraph(gl, resources);
+  // initCubeMap(gl, resources);
 }
 
 function initTextures(r) {
@@ -172,7 +180,7 @@ function createSceneGraph(gl, resources) {
     matRun.shininess = 0.4;
 
     transRunner.push(//new TransformationSGNode(mat4.create(), [
-      new TransformationSGNode(glm.transform({ translate: [0,1, 0], rotateX : 180, scale: 0.8 }),  [
+      new TransformationSGNode(glm.transform({ translate: [0,0.7, 0], rotateX : 270, scale: 1 }),  [
         matRun
       //])
     ]));
@@ -200,10 +208,10 @@ function createSceneGraph(gl, resources) {
 }
 
 function createRunner() {
-  runnerNodes.push(new RunnerNode([-2,1,0],.012,[0,0,1]));
-  runnerNodes.push(new RunnerNode([-1,1,0],.01,[0,0,1]));
-  runnerNodes.push(new RunnerNode([0,1,0],.011,[0,0,1]));
-  runnerNodes.push(new RunnerNode([1,1,0],.013,[0,0,1]));
+  runnerNodes.push(new RunnerNode([-2,1,0],.022,[0,0,1]));
+  runnerNodes.push(new RunnerNode([-1,1,0],.02,[0,0,1]));
+  runnerNodes.push(new RunnerNode([0,1,0],.021,[0,0,1]));
+  runnerNodes.push(new RunnerNode([1,1,0],.023,[0,0,1]));
 }
 
 function initRunners() {
@@ -213,7 +221,76 @@ function initRunners() {
 
   document.getElementById("reset").addEventListener("click", e=>runnerNodes.forEach(r=>r.reset()));
 
-  document.getElementById("end").addEventListener("click", e=>runnerNodes.forEach((r,i)=>r.state=i===0?RunnerState.jubilating:RunnerState.depressed));
+  document.getElementById("end").addEventListener("click", e=>runnerNodes.forEach((r,i)=>r.state=i===3?RunnerState.jubilating:RunnerState.depressed));
+}
+
+function initCubeMap(gl, resources) {
+  root.append(new class extends SGNode {
+    constructor(resources, children) {
+      super(children);
+      this.textureUnit = 0;
+      this.uniform = 'u_cube';
+      this.useuniform = 'u_useEnv';
+      this.textureId = -1;
+      this.resources = resources;
+    }
+
+    init(gl) {
+      this.textureId = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.textureId);
+
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, this.magFilter || gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, this.minFilter || gl.LINEAR);
+
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, this.wrapS || gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, this.wrapT || gl.CLAMP_TO_EDGE);
+
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.textureId);
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.resources.positivex);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.textureId);
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.resources.negativex);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.textureId);
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.resources.positivey);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.textureId);
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.resources.negativey);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.textureId);
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.resources.positivez);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.textureId);
+      gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.resources.negativez);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+    }
+
+    render(context) {
+      if (this.textureId < 0) {
+        this.init(context.gl);
+      }
+      //set additional shader parameters
+      gl.uniform1i(gl.getUniformLocation(context.shader, this.uniform), this.textureUnit);
+      gl.uniform1i(gl.getUniformLocation(context.shader, this.useuniform), true);
+
+      //activate and bind texture
+      gl.activeTexture(gl.TEXTURE0 + this.textureUnit);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.textureId);
+
+      //render children
+      super.render(context);
+
+      //clean up
+      gl.activeTexture(gl.TEXTURE0 + this.textureUnit);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+    }
+  } (resources, new TransformationSGNode(glm.transform({scale: 50}), [new CubeRenderNode()])));
+
 }
 
 function initInteraction() {
@@ -249,6 +326,10 @@ function updateEye(ammount) {
     eye[0] += (center[0] - eye[0]) * ammount;
     eye[1] += (center[1] - eye[1]) * ammount;
     eye[2] += (center[2] - eye[2]) * ammount;
+
+    for (var r of runnerNodes) {
+      r.tryNear();
+    }
   }
 }
 
@@ -280,8 +361,6 @@ function render(timeInMilliseconds) {
 
   context.sceneMatrix = flight.getSceneMatrix(context, timeInMilliseconds);
 
-  console.log(context.sceneMatrix);
-
   context.viewMatrix = mat4.lookAt(mat4.create(), eye, center, [0,1,0]);
 
   //TASK 4-2 enable light rotation
@@ -300,19 +379,28 @@ function render(timeInMilliseconds) {
 
 class CameraFlight {
   constructor() {
-    this.elapsed = 0;
-    this.last = 0;
     this.activated = true;
 	  this.lastSceneMatrix = mat4.create();
+    this.running = false;
   }
 
   getSceneMatrix(context, time) {
     if (this.activated) {
-      this.elapsed = time - this.last;
-      this.last = time;
-  		if (this.elapsed == 0) {
+
+  		if (time == 0) {  //turning behind runners
   			this.lastSceneMatrix = mat4.multiply(mat4.create(), this.lastSceneMatrix, glm.rotateY(0));
-  		}
+  		} else if (time < 5000) { //standing up, turning to side
+        this.lastSceneMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.rotateY((time / 5000) * 90));
+      } else if (time < 15000) {  //flying with runners
+        if (!this.running) {
+          this.running = true;
+          runnerNodes.forEach(r=>r.state=RunnerState.running);
+        }
+        this.lastSceneMatrix = mat4.multiply(mat4.create(), glm.rotateY(90), glm.translate(0,0,((time - 5000) / 1000)));
+      } else if (this.running && time > 15000) {  //jubilating
+        this.running = false;
+        runnerNodes.forEach((r,i)=>r.state=i===3?RunnerState.jubilating:RunnerState.depressed);
+      }
     }
 	  return this.lastSceneMatrix;
   }
@@ -502,6 +590,8 @@ RunnerNode = function() {
       this.speed = speed;
       this.direction = direction;
       this.state = this[state] = state; // initializing [state] and [lastState] with state
+      this.near = false;  //boolean for finding if camera is near
+      this.absPos = [];
 
       //body
       this.append(this.body = new LimbNode(bodyTransformationMatrix, bodyTexture));
@@ -533,6 +623,13 @@ RunnerNode = function() {
     this.resetLimbs();
   }
 
+  tryNear() {
+    if (-this.absPos[2] < 2) {
+      this.near = true;
+    }
+    else this.near = false;
+  }
+
   resetLimbs() {
     for (var c of this.children) {
       if (c instanceof LimbNode) c.reset();
@@ -553,52 +650,68 @@ RunnerNode = function() {
 
     switch(this.state) {
       case RunnerState.running:
-        this.rotation = limbRotation();
-        this.position = add(this.position,scale(this.speed, this.direction));
+        if (flight.activated || this.near) {
+          this.rotation = limbRotation();
+          if (!this.near) this.position = add(this.position,scale(this.speed, this.direction));
 
-        //update transformation of runner
-        //transformation of left leg
-        var rotatedLimb = mat4.multiply(mat4.create(), this[forward], leftLegTransformationMatrix);
-        this.leftLeg.matrix = rotatedLimb;
+          //update transformation of runner
+          //transformation of left leg
+          var rotatedLimb = mat4.multiply(mat4.create(), this[forward], leftLegTransformationMatrix);
+          this.leftLeg.matrix = rotatedLimb;
 
-        //transformation of right leg
-        rotatedLimb = mat4.multiply(mat4.create(), this[backward], rightLegTransformationMatrix);
-        this.rightLeg.matrix = rotatedLimb;
+          //transformation of right leg
+          rotatedLimb = mat4.multiply(mat4.create(), this[backward], rightLegTransformationMatrix);
+          this.rightLeg.matrix = rotatedLimb;
 
-        //transformation of left arm
-        var leftArmTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0,0.3,0));
-        leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, this[backward]);
-        leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, glm.translate(...add(armTrans,[0,-0.3,0])));
-        leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, limbScale);
-        this.leftArm.matrix = leftArmTransformationMatrix;
+          //transformation of left arm
+          var leftArmTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0,0.3,0));
+          leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, this[backward]);
+          leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, glm.translate(...add(armTrans,[0,-0.3,0])));
+          leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, limbScale);
+          this.leftArm.matrix = leftArmTransformationMatrix;
 
-        //transformation of right arm
-        var rightArmTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0,0.3,0));
-        rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, this[forward]);
-        rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, glm.translate(...xMirror(add(armTrans,[0,-0.3,0]))));
-        rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, limbScale);
-        this.rightArm.matrix = rightArmTransformationMatrix;
+          //transformation of right arm
+          var rightArmTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0,0.3,0));
+          rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, this[forward]);
+          rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, glm.translate(...xMirror(add(armTrans,[0,-0.3,0]))));
+          rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, limbScale);
+          this.rightArm.matrix = rightArmTransformationMatrix;
+        }
 
         break;
       case RunnerState.jubilating:
-        this.rotation = limbRotation() + 180;
-        //transformation of left arm
-        var leftArmTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0,0.3,0));
-        leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, this[backward]);
-        leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, glm.translate(...add(armTrans,[0,-0.3,0])));
-        leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, limbScale);
-        this.leftArm.matrix = leftArmTransformationMatrix;
+        if (flight.activated || this.near) {
+          this.rotation = limbRotation() + 180;
+          //transformation of left arm
+          var leftArmTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0,0.3,0));
+          leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, this[backward]);
+          leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, glm.translate(...add(armTrans,[0,-0.3,0])));
+          leftArmTransformationMatrix = mat4.multiply(mat4.create(), leftArmTransformationMatrix, limbScale);
+          this.leftArm.matrix = leftArmTransformationMatrix;
 
-        //transformation of right arm
-        var rightArmTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0,0.3,0));
-        rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, this[forward]);
-        rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, glm.translate(...xMirror(add(armTrans,[0,-0.3,0]))));
-        rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, limbScale);
-        this.rightArm.matrix = rightArmTransformationMatrix;
+          //transformation of right arm
+          var rightArmTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0,0.3,0));
+          rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, this[forward]);
+          rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, glm.translate(...xMirror(add(armTrans,[0,-0.3,0]))));
+          rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, limbScale);
+          this.rightArm.matrix = rightArmTransformationMatrix;
+        }
         break;
       case RunnerState.depressed:
         break;
+      case RunnerState.starting:
+        if (flight.activated) { //standup during start
+          transRunner.forEach(r=>r.matrix = glm.transform({ translate: [0,0.7+(0.3*animatedAngle*10/5000), 0], rotateX : 270-(90*animatedAngle*10/5000), scale: 1 }));
+        } else if (this.near) {
+          this.rotation = (limbRotation() + 45) / 90;
+          transRunner.forEach(r=>r.matrix = glm.transform({ translate: [0,0.7+(this.rotation*0.3), 0], rotateX : 270-(90*this.rotation), scale: 1 }));
+        }
+        break;
     }
+
+    var modelViewMatrix = mat4.multiply(mat4.create(), context.viewMatrix, context.sceneMatrix);
+    this.absPos = [...this.position, 1];
+    this.absPos = vec4.transformMat4(vec4.create(), this.absPos, modelViewMatrix);
 
     // render head, body, limbs
     super.render(context);
