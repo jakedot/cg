@@ -34,6 +34,8 @@ uniform Light u_light2;
 
 uniform sampler2D u_tex;
 
+uniform float u_alpha;
+
 //varying vectors for light computation
 varying vec3 v_normalVec;
 varying vec3 v_eyeVec;
@@ -62,7 +64,7 @@ vec4 calculateSimplePointLight(Light light, Material material, vec3 lightVec, ve
 
   vec4 color = (c_amb + c_diff + c_spec + c_em) * 0.25;
 
-	return vec4(color.rgb, c_em.a);
+	return vec4(color.rgb, color.a * u_alpha);
 }
 
 void main() {
