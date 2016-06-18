@@ -23,6 +23,7 @@ var armTexture;
 var bodyTexture;
 var headTexture;
 var trackTexture;
+var glassTexture;
 
 var runnerNodes = [];
 var transRunner = [];
@@ -55,21 +56,64 @@ var cubeTexCoords = new Float32Array([
   0.5,0.66, 0.5,0.33, 1,0.33,   1,0.66,  // left face
   0.5,0.33, 0.5,0,    1,0,      1,0.33,  // right face
   0.5,0.66, 1,0.66,   1,1,      0.5,1,  // down face
-  0,0,      0.5,0,    0.5,0.33, 0,0.33]);  // top face
+  0,0,      0.5,0,    0.5,0.33, 0,0.33  // top face
+]);
 
-const trophyVertices = [
+const trophyVertices = new Float32Array([
   -s,-s,-s, -s,-s, s, s,-s, s, s,-s,-s,
-  0,0,0,
+  0,0.1,0, 0,-0.1,0,
   -s, s,-s, -s, s, s, s, s, s, s, s,-s,
-]
+])
 
-const trophyIndices = [
+const trophyIndices = new Float32Array([
   0,1,2, 0,2,3,
   0,1,4, 1,2,4, 2,3,4, 3,0,4,
-  5,6,4, 6,7,4, 7,8,4, 8,5,4,
-  5,6,7, 5,7,8
-]
+  6,7,5, 7,8,5, 8,9,5, 9,6,5,
+  6,7,8, 6,8,9
+])
 
+const trophyTexCoords = new Float32Array([
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+]);
 
 //load the shader resources using a utility function
 loadResources({
@@ -84,7 +128,8 @@ loadResources({
   bodytexture: 'textures/body.png',
   headtexture: 'textures/head_full.png',
   //track
-  tracktexture: 'textures/track.jpg'
+  tracktexture: 'textures/track.jpg',
+  glasstexture: 'textures/glass.jpg'
 }).then(function (resources /*an object containing our keys with the loaded resources*/) {
   init(resources);
 
@@ -111,6 +156,7 @@ function initTextures(r) {
   bodyTexture = r.bodytexture;
   armTexture = r.armtexture;
   trackTexture = r.tracktexture;
+  glassTexture = r.glasstexture;
 }
 
 function createSceneGraph(gl, resources) {
@@ -121,11 +167,6 @@ function createSceneGraph(gl, resources) {
     return new ShaderSGNode(createProgram(gl, resources.vs_single, resources.fs_single), [
       new RenderSGNode(makeSphere(.2,10,10))
     ]);
-  }
-
-  {
-    let trophy = new TrophyRenderNode();
-    root.append(trophy);
   }
 
   {
@@ -156,6 +197,17 @@ function createSceneGraph(gl, resources) {
         light2
     ]);
     root.append(rotateLight2);
+  }
+
+  {
+    let trophy = new TrophyNode(glm.transform({
+      translate: [2,0,0],
+      rotateX: 0,
+      scale: 0.5,
+      scaleY: 1
+    }), glassTexture);
+
+    root.append(trophy);
   }
 
   createRunner();
@@ -270,7 +322,7 @@ function render(timeInMilliseconds) {
 
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
   //set background color to light gray
-  gl.clearColor(0.9, 0.9, 0.9, 1.0);
+  gl.clearColor(0.3, 0.3, 0.6, 1.0);
   //clear the buffer
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -279,8 +331,6 @@ function render(timeInMilliseconds) {
   context.projectionMatrix = mat4.perspective(mat4.create(), 30, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.01, 100);
 
   context.sceneMatrix = flight.getSceneMatrix(context, timeInMilliseconds);
-
-  console.log(context.sceneMatrix);
 
   context.viewMatrix = mat4.lookAt(mat4.create(), eye, center, [0,1,0]);
 
@@ -382,8 +432,25 @@ class TrophyRenderNode extends RenderSGNode {
   constructor() {
     super({
       index: trophyIndices,
-      position: cubeVertices
+      position: trophyVertices,
+      texture: trophyTexCoords
     })
+  }
+}
+
+class TrophyNode extends TransformationSGNode {
+  constructor(matrix, texture) {
+      super(matrix, [new AdvancedTextureSGNode(texture, [new TrophyRenderNode()])]);
+  }
+
+  render(context) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+
+    super.render(context);
+
+    gl.blendFunc(gl.ONE, gl.ZERO);
+    gl.disable(gl.BLEND);
   }
 }
 
@@ -503,8 +570,10 @@ RunnerNode = function() {
       this.direction = direction;
       this.state = this[state] = state; // initializing [state] and [lastState] with state
 
+
       //body
-      this.append(this.body = new LimbNode(bodyTransformationMatrix, bodyTexture));
+      this.body = new LimbNode(bodyTransformationMatrix, bodyTexture)
+      this.append(this.body);
 
       //head
       this.head = new LimbNode(headTransformationMatrix, headTexture);

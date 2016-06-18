@@ -60,7 +60,10 @@ vec4 calculateSimplePointLight(Light light, Material material, vec3 lightVec, ve
 	vec4 c_spec = clamp(spec * light.specular * material.specular, 0.0, 1.0);
 	vec4 c_em   = texture2D(u_tex,v_texCoord);
 
-	return c_amb + c_diff + c_spec + c_em;
+  vec4 color = c_amb + c_diff + c_spec + c_em;
+
+	return vec4(color.rgb, c_em.a);
+
 }
 
 void main() {
