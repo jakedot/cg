@@ -18,11 +18,14 @@
  //
  var animatedAngle = 0;
 
+ var cameraBlur = false;
+
 // textures
 var armTexture;
 var bodyTexture;
 var headTexture;
 var trackTexture;
+var glassTexture;
 
 var runnerNodes = [];
 var transRunner = [];
@@ -64,21 +67,64 @@ var cubeTexCoords = new Float32Array([
   0.5,0.66, 0.5,0.33, 1,0.33,   1,0.66,  // left face
   0.5,0.33, 0.5,0,    1,0,      1,0.33,  // right face
   0.5,0.66, 1,0.66,   1,1,      0.5,1,  // down face
-  0,0,      0.5,0,    0.5,0.33, 0,0.33]);  // top face
+  0,0,      0.5,0,    0.5,0.33, 0,0.33  // top face
+]);
 
-const trophyVertices = [
+const trophyVertices = new Float32Array([
   -s,-s,-s, -s,-s, s, s,-s, s, s,-s,-s,
-  0,0,0,
+  0,0.1,0, 0,-0.1,0,
   -s, s,-s, -s, s, s, s, s, s, s, s,-s,
-]
+])
 
-const trophyIndices = [
+const trophyIndices = new Float32Array([
   0,1,2, 0,2,3,
   0,1,4, 1,2,4, 2,3,4, 3,0,4,
-  5,6,4, 6,7,4, 7,8,4, 8,5,4,
-  5,6,7, 5,7,8
-]
+  6,7,5, 7,8,5, 8,9,5, 9,6,5,
+  6,7,8, 6,8,9
+])
 
+const trophyTexCoords = new Float32Array([
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+  0,0, 0,1, 1,1, 1,0,
+]);
 
 //load the shader resources using a utility function
 loadResources({
@@ -92,8 +138,9 @@ loadResources({
   armtexture: 'textures/arm_full.png',
   bodytexture: 'textures/body.png',
   headtexture: 'textures/head_full.png',
-  //track
   tracktexture: 'textures/track.jpg',
+  glasstexture: 'textures/glass.png',
+
   // cubemap
   positivex: 'textures/pos-x.png',
   negativex: 'textures/neg-x.png',
@@ -120,7 +167,6 @@ function init(resources) {
   initRunners();
   // initCubeBuffer(gl);
   root = createSceneGraph(gl, resources);
-  // initCubeMap(gl, resources);
 }
 
 function initTextures(r) {
@@ -128,6 +174,7 @@ function initTextures(r) {
   bodyTexture = r.bodytexture;
   armTexture = r.armtexture;
   trackTexture = r.tracktexture;
+  glassTexture = r.glasstexture;
 }
 
 function createSceneGraph(gl, resources) {
@@ -141,15 +188,10 @@ function createSceneGraph(gl, resources) {
   }
 
   {
-    let trophy = new TrophyRenderNode();
-    root.append(trophy);
-  }
-
-  {
     //TASK 3-6 create white light node at [0, -2, 2]
     let light = new LightSGNode();
-    light.ambient = [0, 0, 0, 1];
-    light.diffuse = [1, 1, 1, 1];
+    light.ambient = [1, 1, 1, 0.2];
+    light.diffuse = [1, 1, 1, 0.5];
     light.specular = [1, 1, 1, 1];
     light.position = [0, -2, 2];
     light.append(createLightSphere());
@@ -161,14 +203,15 @@ function createSceneGraph(gl, resources) {
 
 
   {
-    //TASK 5-1 create red light node at [2, 0.2, 0]
-    let light2 = new LightSGNode();
+    //TASK 5-1 create red light spotlight
+    let light2 = new SpotLightSGNode();
     light2.uniform = 'u_light2';
     light2.diffuse = [1, 0, 0, 1];
     light2.specular = [1, 0, 0, 1];
     light2.position = [2, 0.2, 0];
+    light2.direction = [0,-1,0];
     light2.append(createLightSphere());
-    rotateLight2 = new TransformationSGNode(glm.translate(0, -2, 2), [
+    rotateLight2 = new TransformationSGNode(glm.translate(0, -2, -2), [
         light2
     ]);
     rotateLight = new TransformationSGNode(mat4.create(), [rotateLight, rotateLight2]);
@@ -178,6 +221,17 @@ function createSceneGraph(gl, resources) {
   createRunner();
   runnerNodes.forEach(r=>transRunner.push(new TransformationSGNode(glm.transform({ translate: [0,0.8, 0], rotateX : 270, scale: 1 }),[r])));
   transRunner.forEach(t=>root.append(t));
+
+  {
+    let trophy = new TrophyNode(glm.transform({
+      translate: [2,0,0],
+      rotateX: 0,
+      scale: 0.5,
+      scaleY: 1
+    }), glassTexture);
+
+    root.append(trophy);
+  }
 
   {
     let floor = new AdvancedTextureSGNode(
@@ -375,8 +429,9 @@ function render(timeInMilliseconds) {
   checkForWindowResize(gl);
 
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
   //set background color to light gray
-  gl.clearColor(0.9, 0.9, 0.9, 1.0);
+  gl.clearColor(0.3, 0.3, 0.6, 1.0);
   //clear the buffer
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -426,6 +481,9 @@ class CameraFlight {
         }
         this.lastSceneMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.rotateY(130+(time-25000)/5000*410));
         this.lastSceneMatrix = mat4.multiply(mat4.create(), this.lastSceneMatrix, glm.translate(0,0,25));
+        cameraBlur = true;
+      } else {
+        cameraBlur = false;
       }
     }
 	  return this.lastSceneMatrix;
@@ -447,8 +505,25 @@ class TrophyRenderNode extends RenderSGNode {
   constructor() {
     super({
       index: trophyIndices,
-      position: cubeVertices
+      position: trophyVertices,
+      texture: trophyTexCoords
     })
+  }
+}
+
+class TrophyNode extends TransformationSGNode {
+  constructor(matrix, texture) {
+      super(matrix, [new AdvancedTextureSGNode(texture, [new TrophyRenderNode()])]);
+  }
+
+  render(context) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+
+    super.render(context);
+
+    gl.blendFunc(gl.ONE, gl.ZERO);
+    gl.disable(gl.BLEND);
   }
 }
 
@@ -574,8 +649,10 @@ RunnerNode = function() {
       this.near = false;  //boolean for finding if camera is near
       this.absPos = [];
 
+
       //body
-      this.append(this.body = new LimbNode(bodyTransformationMatrix, bodyTexture));
+      this.body = new LimbNode(bodyTransformationMatrix, bodyTexture)
+      this.append(this.body);
 
       //head
       this.head = new LimbNode(headTransformationMatrix, headTexture);
@@ -629,6 +706,14 @@ RunnerNode = function() {
       this.state = this[state];
     }
 
+    if (cameraBlur) {
+      gl.uniform1i(gl.getUniformLocation(context.shader, 'numSamples'), 3);
+      gl.uniform1f(gl.getUniformLocation(context.shader, 'distance'), 25);
+    } else {
+      gl.uniform1i(gl.getUniformLocation(context.shader, 'numSamples'), 1);
+      gl.uniform1f(gl.getUniformLocation(context.shader, 'distance'), 0);
+    }
+
     switch(this.state) {
       case RunnerState.running:
         if (flight.activated || this.near) {
@@ -657,6 +742,12 @@ RunnerNode = function() {
           rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, glm.translate(...xMirror(add(armTrans,[0,-0.3,0]))));
           rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, limbScale);
           this.rightArm.matrix = rightArmTransformationMatrix;
+
+          gl.uniform1i(gl.getUniformLocation(context.shader, 'viewportWidth'), gl.drawingBufferWidth);
+          gl.uniform1i(gl.getUniformLocation(context.shader, 'viewportHeight'), gl.drawingBufferHeight);
+          gl.uniform1i(gl.getUniformLocation(context.shader, 'numSamples'), 3);
+          gl.uniform1f(gl.getUniformLocation(context.shader, 'distance'), Math.floor(this.speed * 1000));
+          gl.uniform1f(gl.getUniformLocation(context.shader, 'direction'), 45);
         }
 
         break;
@@ -714,4 +805,17 @@ function makeRectText(width, height, textures) {
 
 function convertDegreeToRadians(degree) {
   return degree * Math.PI / 180;
+}
+
+class SpotLightSGNode extends LightSGNode {
+  constructor(children) {
+    super(children);
+    this.direction = [0,0,0];
+  }
+
+  render(context) {
+    console.log(this.direction);
+    gl.uniform3f(gl.getUniformLocation(context.shader, 'l2dir'), this.direction[0], this.direction[1], this.direction[2]);
+    super.render(context);
+  }
 }
