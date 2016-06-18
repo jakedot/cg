@@ -18,6 +18,8 @@
  //
  var animatedAngle = 0;
 
+ var cameraBlur = false;
+
 // textures
 var armTexture;
 var bodyTexture;
@@ -102,6 +104,7 @@ loadResources({
   //track
   tracktexture: 'textures/track.jpg',
   glasstexture: 'textures/glass.png',
+
   // cubemap
   positivex: 'textures/pos-x.png',
   negativex: 'textures/neg-x.png',
@@ -128,7 +131,6 @@ function init(resources) {
   initRunners();
   // initCubeBuffer(gl);
   root = createSceneGraph(gl, resources);
-  // initCubeMap(gl, resources);
 }
 
 function initTextures(r) {
@@ -152,8 +154,8 @@ function createSceneGraph(gl, resources) {
   {
     //TASK 3-6 create white light node at [0, -2, 2]
     let light = new LightSGNode();
-    light.ambient = [0, 0, 0, 1];
-    light.diffuse = [1, 1, 1, 1];
+    light.ambient = [1, 1, 1, 0.2];
+    light.diffuse = [1, 1, 1, 0.5];
     light.specular = [1, 1, 1, 1];
     light.position = [0, -2, 2];
     light.append(createLightSphere());
@@ -165,14 +167,15 @@ function createSceneGraph(gl, resources) {
 
 
   {
-    //TASK 5-1 create red light node at [2, 0.2, 0]
-    let light2 = new LightSGNode();
+    //TASK 5-1 create red light spotlight
+    let light2 = new SpotLightSGNode();
     light2.uniform = 'u_light2';
     light2.diffuse = [1, 0, 0, 1];
     light2.specular = [1, 0, 0, 1];
     light2.position = [2, 0.2, 0];
+    light2.direction = [0,-1,0];
     light2.append(createLightSphere());
-    rotateLight2 = new TransformationSGNode(glm.translate(0, -2, 2), [
+    rotateLight2 = new TransformationSGNode(glm.translate(0, -2, -2), [
         light2
     ]);
     rotateLight = new TransformationSGNode(mat4.create(), [rotateLight, rotateLight2]);
@@ -181,10 +184,7 @@ function createSceneGraph(gl, resources) {
 
   createRunner();
   runnerNodes.forEach(r=>transRunner.push(new TransformationSGNode(glm.transform({ translate: [0,0.8, 0], rotateX : 270, scale: 1 }),[r])));
-
   transRunner.forEach(t=>root.append(t));
-
-
   {
     let trophy = new TrophyNode(glm.transform({
       translate: [0,1,0],
@@ -392,6 +392,7 @@ function render(timeInMilliseconds) {
   checkForWindowResize(gl);
 
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
   //set background color to light gray
   gl.clearColor(0.3, 0.3, 0.6, 1.0);
   //clear the buffer
@@ -445,6 +446,9 @@ class CameraFlight {
         }
         this.lastSceneMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.rotateY(130+(time-25000)/5000*410));
         this.lastSceneMatrix = mat4.multiply(mat4.create(), this.lastSceneMatrix, glm.translate(0,0,25));
+        cameraBlur = true;
+      } else {
+        cameraBlur = false;
       }
     }
 	  return this.lastSceneMatrix;
@@ -671,6 +675,14 @@ RunnerNode = function() {
       this.state = this[state];
     }
 
+    if (cameraBlur) {
+      gl.uniform1i(gl.getUniformLocation(context.shader, 'numSamples'), 3);
+      gl.uniform1f(gl.getUniformLocation(context.shader, 'distance'), 25);
+    } else {
+      gl.uniform1i(gl.getUniformLocation(context.shader, 'numSamples'), 1);
+      gl.uniform1f(gl.getUniformLocation(context.shader, 'distance'), 0);
+    }
+
     switch(this.state) {
       case RunnerState.running:
         if (flight.activated || this.near) {
@@ -699,6 +711,12 @@ RunnerNode = function() {
           rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, glm.translate(...xMirror(add(armTrans,[0,-0.3,0]))));
           rightArmTransformationMatrix = mat4.multiply(mat4.create(), rightArmTransformationMatrix, limbScale);
           this.rightArm.matrix = rightArmTransformationMatrix;
+
+          gl.uniform1i(gl.getUniformLocation(context.shader, 'viewportWidth'), gl.drawingBufferWidth);
+          gl.uniform1i(gl.getUniformLocation(context.shader, 'viewportHeight'), gl.drawingBufferHeight);
+          gl.uniform1i(gl.getUniformLocation(context.shader, 'numSamples'), 3);
+          gl.uniform1f(gl.getUniformLocation(context.shader, 'distance'), Math.floor(this.speed * 1000));
+          gl.uniform1f(gl.getUniformLocation(context.shader, 'direction'), 45);
         }
 
         break;
@@ -757,4 +775,16 @@ function makeRectText(width, height, texture) {
 
 function convertDegreeToRadians(degree) {
   return degree * Math.PI / 180;
+}
+
+class SpotLightSGNode extends LightSGNode {
+  constructor(children) {
+    super(children);
+    this.direction = [0,0,0];
+  }
+
+  render(context) {
+    gl.uniform3f(gl.getUniformLocation(context.shader, 'l2dir'), this.direction[0], this.direction[1], this.direction[2]);
+    super.render(context);
+  }
 }
