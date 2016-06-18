@@ -814,7 +814,6 @@ class SpotLightSGNode extends LightSGNode {
   }
 
   render(context) {
-    console.log(this.direction);
     gl.uniform3f(gl.getUniformLocation(context.shader, 'l2dir'), this.direction[0], this.direction[1], this.direction[2]);
     super.render(context);
   }
